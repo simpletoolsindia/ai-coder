@@ -169,6 +169,16 @@ export class ProviderManager {
     return this.get(id).chat(req);
   }
 
+  /**
+   * Mark a (provider, model) pair as the most recently used so the next
+   * launch can restore it.
+   */
+  markUsed(providerId: string, model?: string): void {
+    if (!this.providers.has(providerId)) return;
+    this.activeId = providerId;
+    this.options.events?.emitSync('provider.used', { id: providerId, model });
+  }
+
   private buildProvider(config: ProviderConfig): Provider {
     const resolved: ProviderConfig = {
       ...config,

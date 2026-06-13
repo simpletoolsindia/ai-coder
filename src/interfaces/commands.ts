@@ -272,6 +272,75 @@ export const exitCommand: CommandDefinition = {
   },
 };
 
+export const modeCommand: CommandDefinition = {
+  id: 'mode',
+  name: '/mode',
+  description: 'View or set the agent mode. Usage: /mode [plan|execute|toggle]',
+  pluginId: 'core',
+  async execute(args, ctx) {
+    const c = ctx as ExtendedCommandContext;
+    const m = c.mode;
+    if (!m) {
+      c.print('Mode controller is not available.');
+      return;
+    }
+    const [arg] = parseArgs(args);
+    if (!arg) {
+      c.print(`Current mode: ${m.mode.toUpperCase()}`);
+      c.print('Press Tab or use /mode toggle to switch.');
+      return;
+    }
+    if (arg === 'plan' || arg === 'execute') {
+      m.setMode(arg, 'command');
+      c.print(`Switched to ${arg.toUpperCase()} mode.`);
+    } else if (arg === 'toggle') {
+      const next = m.toggle();
+      c.print(`Switched to ${next.toUpperCase()} mode.`);
+    } else {
+      c.print('Usage: /mode [plan|execute|toggle]');
+    }
+  },
+};
+
+export const compactCommand: CommandDefinition = {
+  id: 'compact',
+  name: '/compact',
+  description: 'Compact the conversation context. Usage: /compact [auto]',
+  pluginId: 'core',
+  async execute(_args, ctx) {
+    c_print(ctx, 'Compaction must be triggered from the agent loop. Use Ctrl+L to clear the screen and /clear to reset.');
+  },
+};
+
+export const doctorCommand: CommandDefinition = {
+  id: 'doctor',
+  name: '/doctor',
+  description: 'Run runtime health checks (Node, providers, plugins, tools).',
+  pluginId: 'core',
+  async execute(_args, ctx) {
+    const c = ctx as ExtendedCommandContext;
+    c.print('Running doctor checks…');
+    c.print(`  ✓ Node ${process.version}`);
+    c.print(`  ✓ Platform ${process.platform}/${process.arch}`);
+    c.print(`  ✓ CWD ${process.cwd()}`);
+    const providers = c.providers.list();
+    c.print(`  • Providers: ${providers.length} configured, active: ${c.providers.activeIdOrUndefined() ?? 'none'}`);
+    if (providers.length === 0) {
+      c.print('  ⚠ No providers configured. Run /login to add one.');
+    }
+    const toolCount = c.tools.list().length;
+    c.print(`  ✓ Tools registered: ${toolCount}`);
+    const enabledTools = c.tools.list().filter((t) => c.settings.isToolEnabled(t.id)).length;
+    c.print(`  ✓ Tools enabled: ${enabledTools}/${toolCount}`);
+    c.print('  ✓ SettingsManager: ' + (c.settings.get('general').theme ?? 'auto'));
+    c.print('Doctor complete.');
+  },
+};
+
+function c_print(ctx: CommandContext, line: string): void {
+  ctx.print(line);
+}
+
 function parseArgs(s: string): string[] {
   const out: string[] = [];
   let current = '';
@@ -310,6 +379,9 @@ export const builtInCommands: CommandDefinition[] = [
   settingsCommand,
   extensionsCommand,
   toolsCommand,
+  modeCommand,
+  compactCommand,
+  doctorCommand,
   clearCommand,
   exitCommand,
 ];

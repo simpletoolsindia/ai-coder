@@ -12,8 +12,8 @@ describe('PromptBuilder', () => {
   it('includes environment block', () => {
     const p = new PromptBuilder({ cwd: '/x', platform: 'darwin' });
     const out = p.build();
-    expect(out).toContain('Working directory: /x');
-    expect(out).toContain('Platform: darwin');
+    expect(out).toContain('cwd: /x');
+    expect(out).toContain('platform: darwin');
   });
 
   it('includes capabilities', () => {
@@ -43,11 +43,25 @@ describe('PromptBuilder', () => {
     const p = new PromptBuilder();
     const p2 = p.with({ cwd: '/x' });
     expect(p2).not.toBe(p);
-    expect(p2.build()).toContain('Working directory: /x');
+    expect(p2.build()).toContain('cwd: /x');
   });
 
   it('uses custom identity', () => {
     const p = new PromptBuilder({ identity: 'CUSTOM_IDENTITY' });
     expect(p.build()).toContain('CUSTOM_IDENTITY');
+  });
+
+  it('always includes OS meta line and supported commands', () => {
+    const p = new PromptBuilder();
+    const out = p.build();
+    expect(out).toMatch(/OS:\s+(windows|macos|linux|unknown)/);
+    expect(out).toContain('Supported commands:');
+  });
+
+  it('honours custom osMeta and supportedCommands', () => {
+    const p = new PromptBuilder({ osMeta: 'OS: custom', supportedCommands: 'foo,bar' });
+    const out = p.build();
+    expect(out).toContain('OS: custom');
+    expect(out).toContain('Supported commands: foo,bar');
   });
 });

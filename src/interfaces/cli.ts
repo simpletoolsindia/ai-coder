@@ -9,6 +9,8 @@ import { coreToolsPlugin } from '../tools/index.js';
 import { resolveProviderConfigPath } from '../core/provider-manager.js';
 import { PluginManager } from '../core/plugin-manager.js';
 import { resolveConfigPath } from '../core/settings-manager.js';
+import { StatusDisplay } from '../core/status-display.js';
+import { ModeController } from '../core/mode-controller.js';
 
 export interface CliOptions {
   runtime?: Runtime;
@@ -33,6 +35,8 @@ export class CLI {
   };
   private rl?: RLInterface;
   private exitRequested = false;
+  private status: StatusDisplay;
+  private mode: ModeController;
 
   constructor(options: CliOptions = {}) {
     this.options = {
@@ -45,6 +49,11 @@ export class CLI {
       noPlugins: options.noPlugins ?? false,
     };
     this.runtime = this.options.runtime ?? new Runtime({ logger: this.options.logger, events: this.options.events });
+    this.status = new StatusDisplay({
+      totalSteps: 8,
+      onLine: (line) => this.print(line),
+    });
+    this.mode = new ModeController();
   }
 
   async initialize(): Promise<void> {
@@ -61,19 +70,45 @@ export class CLI {
       });
       this.runtime.plugins = plugins;
       this.runtime.planner['options'].plugins = plugins;
+      this.runtime.planner['options'].mode = this.mode;
     }
     await this.runtime.initialize();
     await this.runtime.providers.loadFromFile(resolveProviderConfigPath(process.cwd())).catch((err) => {
       this.options.logger.warn(`Could not load providers.json: ${(err as Error).message}`);
     });
+    // Wire last-used model persistence: subscribe to provider.used events
+    // and update settings + persist the active (provider, model) pair.
+    this.options.events.on('provider.used', (payload) => {
+      const p = payload as { id: string; model?: string };
+      void this.runtime.settings.update('general', (cur) => ({
+        ...cur,
+        defaultProvider: p.id,
+        defaultModel: p.model ?? cur.defaultModel,
+      }));
+    });
+    // Restore last-used selection if it was persisted and still exists.
+    const gen = this.runtime.settings.get('general');
+    if (gen.defaultProvider && this.runtime.providers.has(gen.defaultProvider)) {
+      this.runtime.providers.setActive(gen.defaultProvider);
+    }
     // Pre-register built-in tools without triggering plugin loading so the
     // core tools are immediately available.
-    const [{ filesystemTools }, { searchTools }, { terminalTools }] = await Promise.all([
+    const [{ filesystemTools }, { searchTools }, { terminalTools }, { gitTools }] = await Promise.all([
       import('../tools/filesystem/index.js'),
       import('../tools/search/index.js'),
       import('../tools/terminal/index.js'),
+      import('../tools/git/index.js'),
     ]);
-    this.runtime.tools.registerMany([...filesystemTools, ...searchTools, ...terminalTools]);
+    this.runtime.tools.registerMany([...filesystemTools, ...searchTools, ...terminalTools, ...gitTools]);
+    // Bind the status display to runtime events
+    this.status.bind(this.options.events);
+    this.options.events.on('mode.changed', (p) => {
+      const ev = p as { from: string; to: string };
+      this.print(`\n[mode] ${ev.from.toUpperCase()} → ${ev.to.toUpperCase()}`);
+    });
+    this.mode.onChange((ev) => {
+      this.options.events.emitSync('mode.changed', ev);
+    });
     this.options.events.emitSync('cli.initialized', {});
   }
 
@@ -95,15 +130,29 @@ export class CLI {
       if (!this.exitRequested && !this.options.noPrompt) this.rl?.prompt();
     });
     if (this.options.noPrompt) return;
+    this.printBanner();
     this.rl?.prompt();
     await new Promise<void>((resolve) => {
       this.rl?.on('close', () => resolve());
     });
   }
 
+  private printBanner(): void {
+    const mode = this.mode.mode.toUpperCase();
+    const provider = this.runtime.providers.activeIdOrUndefined() ?? '(no provider)';
+    this.print(`\x1b[1mAI By\x1b[0m · mode: \x1b[36m${mode}\x1b[0m · provider: \x1b[33m${provider}\x1b[0m`);
+    this.print('Type a request, a slash command, or press Tab to switch PLAN/EXECUTE mode.\n');
+  }
+
   async handle(input: string, commands: CommandRegistry): Promise<void> {
     const trimmed = input.trim();
     if (!trimmed) return;
+    // Tab key (received as a literal tab character) toggles PLAN/EXECUTE mode
+    if (trimmed === '\t' || /^tab$/i.test(trimmed)) {
+      const next = this.mode.toggle();
+      this.print(`\n[mode] switched to ${next.toUpperCase()}`);
+      return;
+    }
     if (trimmed.startsWith('/')) {
       try {
         await commands.run(trimmed, {
@@ -115,6 +164,8 @@ export class CLI {
           events: this.options.events,
           logger: this.options.logger,
           print: (line) => this.print(line),
+          mode: this.mode,
+          status: this.status,
         });
       } catch (err) {
         if (err instanceof CommandNotFoundError) {
@@ -127,10 +178,16 @@ export class CLI {
       }
       return;
     }
+    this.status.reset(8);
+    this.status.setActivity(this.mode.isPlan() ? 'planning' : 'thinking', trimmed.slice(0, 60));
     try {
-      const result = await this.runtime.run(trimmed);
+      const result = await this.runtime.run(trimmed, {
+        context: { cwd: process.cwd() },
+      });
+      this.status.done(`done in ${result.steps.length} step(s)`);
       this.print(result.text || '(no response)');
     } catch (err) {
+      this.status.fail((err as Error).message);
       this.print(`Error: ${(err as Error).message}`);
     }
   }

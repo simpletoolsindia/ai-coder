@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint · Typecheck · Test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint "src/**/*.ts" "tests/**/*.ts"
+      - run: npx vitest run --coverage
+        env:
+          AI_BY_SILENT: 1
+      - name: Upload coverage
+        if: matrix.node-version == '22.x'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Package binaries
+        shell: bash
+        run: |
+          mkdir -p dist-bin
+          cp -r dist install.sh install.ps1 package.json README.md LICENSE dist-bin/ 2>/dev/null || true
+          cd dist-bin
+          tar -czf ../ai-by-${{ matrix.os }}.tar.gz dist install.sh install.ps1 package.json README.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-by-${{ matrix.os }}
+          path: ai-by-${{ matrix.os }}.tar.gz
+          if-no-files-found: ignore

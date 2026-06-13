@@ -7,6 +7,7 @@ import { Logger, createLogger } from './logger.js';
 const GeneralSchema = z
   .object({
     defaultProvider: z.string().optional(),
+    defaultModel: z.string().optional(),
     theme: z.enum(['auto', 'dark', 'light']).default('auto'),
     verbose: z.boolean().default(false),
     maxIterations: z.number().int().positive().default(20),

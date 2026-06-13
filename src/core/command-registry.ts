@@ -124,6 +124,8 @@ export class CommandRegistry {
       tools: ctx.tools as never,
       plugins: ctx.plugins,
       print: ctx.print ?? ((line) => process.stdout.write(`${line}\n`)),
+      mode: ctx.mode,
+      status: ctx.status,
     };
     (fullCtx as unknown as { commands: CommandRegistry }).commands = this;
     await cmd.execute(parsed.args, fullCtx);

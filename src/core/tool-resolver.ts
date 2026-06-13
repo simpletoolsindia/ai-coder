@@ -3,12 +3,15 @@ import { EventBus } from './event-bus.js';
 import { Logger, createLogger } from './logger.js';
 import { PermissionEngine } from './permission-engine.js';
 import { SettingsManager } from './settings-manager.js';
+import { ModeController } from './mode-controller.js';
+import { resilientInvoke } from './resilience.js';
 
 export interface ToolRegistryOptions {
   logger?: Logger;
   events?: EventBus;
   settings?: SettingsManager;
   permissions?: PermissionEngine;
+  mode?: ModeController;
 }
 
 export interface ResolvedTool {
@@ -19,10 +22,11 @@ export interface ResolvedTool {
 
 export class ToolRegistry {
   private tools = new Map<string, Tool>();
-  private options: Required<Omit<ToolRegistryOptions, 'events' | 'settings' | 'permissions'>> & {
+  private options: Required<Omit<ToolRegistryOptions, 'events' | 'settings' | 'permissions' | 'mode'>> & {
     events?: EventBus;
     settings?: SettingsManager;
     permissions?: PermissionEngine;
+    mode?: ModeController;
   };
   private usageStats = new Map<
     string,
@@ -35,6 +39,7 @@ export class ToolRegistry {
       events: options.events,
       settings: options.settings,
       permissions: options.permissions,
+      mode: options.mode,
     };
   }
 
@@ -125,6 +130,15 @@ export class ToolRegistry {
     if (!tool) {
       return { ok: false, error: `Tool "${id}" not found` };
     }
+
+    // Mode gate (plan vs execute)
+    if (this.options.mode) {
+      const decision = this.options.mode.evaluate(tool.definition, (args as Record<string, unknown>) ?? {});
+      if (!decision.allowed) {
+        return { ok: false, error: decision.reason };
+      }
+    }
+
     if (this.options.permissions) {
       try {
         await this.options.permissions.enforce(tool.definition, args as Record<string, unknown>);
@@ -132,29 +146,28 @@ export class ToolRegistry {
         return { ok: false, error: (err as Error).message };
       }
     }
+
     const start = Date.now();
-    let isError = false;
-    try {
-      const logger = this.options.logger.child(`tool:${id}`);
-      const result = await tool.execute(args, {
+    const result = await resilientInvoke(
+      tool,
+      args,
+      {
         cwd: ctx.cwd,
         caller: ctx.caller,
         sessionId: ctx.sessionId,
         signal: ctx.signal,
         permissions: { action: 'allow' },
-        logger,
-      });
-      const dur = Date.now() - start;
-      isError = !result.ok;
-      this.recordUsage(id, isError);
-      this.options.events?.emitSync('tool.executed', { id, ok: result.ok, durationMs: dur });
-      return { ...result, durationMs: dur };
-    } catch (err) {
-      isError = true;
-      this.recordUsage(id, true);
-      this.options.events?.emitSync('tool.failed', { id, error: (err as Error).message });
-      return { ok: false, error: (err as Error).message };
+        logger: this.options.logger.child(`tool:${id}`),
+      },
+    );
+    const dur = Date.now() - start;
+    this.recordUsage(id, !result.ok);
+    if (result.ok) {
+      this.options.events?.emitSync('tool.executed', { id, ok: true, durationMs: dur });
+    } else {
+      this.options.events?.emitSync('tool.failed', { id, error: result.error });
     }
+    return { ...result, durationMs: dur };
   }
 
   usage(): Array<{ id: string; count: number; lastUsed: number; errors: number }> {

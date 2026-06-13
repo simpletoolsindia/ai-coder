@@ -12,4 +12,6 @@ export * from './prompt-builder.js';
 export * from './context-compressor.js';
 export * from './planner.js';
 export * from './runtime.js';
+export * from './mode-controller.js';
+export * from './loop-guard.js';
 export { OpenAICompatibleProvider } from '../providers/openai-compatible.js';

@@ -204,6 +204,8 @@ export interface CommandContext {
   plugins?: PluginManager;
   commands?: CommandRegistry;
   print: (line: string) => void;
+  mode?: import('./mode-controller.js').ModeController;
+  status?: import('./status-display.js').StatusDisplay;
 }
 
 export interface ProviderConfig {

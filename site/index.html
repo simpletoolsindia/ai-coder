@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI By - Plugin-based coding agent</title>
+<style>
+  :root { --fg: #111; --bg: #fff; --accent: #6c5ce7; --muted: #666; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg); background: var(--bg); max-width: 920px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+  h1, h2, h3 { line-height: 1.2; }
+  h1 { font-size: 2.4rem; margin-bottom: 0.25rem; }
+  h2 { margin-top: 2.4rem; border-bottom: 1px solid #eee; padding-bottom: 0.4rem; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { background: #f4f4f4; padding: 0.1rem 0.3rem; border-radius: 4px; }
+  pre { background: #0f0f10; color: #f4f4f4; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+  pre code { background: transparent; padding: 0; color: inherit; }
+  .install { background: #f8f8f8; border: 1px solid #eee; padding: 1rem; border-radius: 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  .card { padding: 1rem; border: 1px solid #eee; border-radius: 8px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .tag { display: inline-block; padding: 0.1rem 0.4rem; background: #eee; border-radius: 4px; font-size: 0.85em; margin-right: 0.25rem; }
+  .emoji { font-size: 1.4em; }
+</style>
+</head>
+<body>
+<h1>🤖 AI By</h1>
+<p><strong>AI By</strong> is a production-grade, plugin-first coding agent. The core stays minimal; everything else is a plugin, loaded only when needed.</p>
+
+<div class="install">
+<strong>Install</strong>
+<pre><code># macOS / Linux / WSL
+curl -fsSL https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.sh | bash
+
+# Windows PowerShell
+iwr -useb https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.ps1 | iex
+
+# npm
+npm install -g ai-by
+</code></pre>
+</div>
+
+<h2>Features</h2>
+<div class="grid">
+  <div class="card"><span class="emoji">🔌</span><strong>Plugin-first</strong><br>Every feature is a manifest-driven plugin. Load only what you need.</div>
+  <div class="card"><span class="emoji">🧭</span><strong>PLAN / EXECUTE modes</strong><br>Press <code>Tab</code> in the REPL to switch. PLAN mode permits only read-only tools.</div>
+  <div class="card"><span class="emoji">🧠</span><strong>Persistent memory</strong><br>Long-term memory persists across sessions, with a search index.</div>
+  <div class="card"><span class="emoji">🗜️</span><strong>Adaptive compression</strong><br>Auto-compact at 95% utilization; manual <code>/compact</code> command.</div>
+  <div class="card"><span class="emoji">🔎</span><strong>Tool RAG</strong><br>Tools are loaded dynamically, not dumped into the prompt.</div>
+  <div class="card"><span class="emoji">🛡️</span><strong>Reliability</strong><br>Retries, argument validation, idempotency, loop guard, completion check.</div>
+  <div class="card"><span class="emoji">🔁</span><strong>Multi-provider</strong><br>OpenAI, Anthropic, Gemini, Ollama, LM Studio, any OpenAI-compatible.</div>
+  <div class="card"><span class="emoji">🪟</span><strong>Cross-platform</strong><br>macOS, Linux, Windows. Single-line installer for every OS.</div>
+  <div class="card"><span class="emoji">🧩</span><strong>MCP</strong><br>Model Context Protocol adapter for in-process and stdio servers.</div>
+  <div class="card"><span class="emoji">🤝</span><strong>Sub-agents</strong><br>Delegate work to focused sub-agents with isolated prompts.</div>
+  <div class="card"><span class="emoji">📊</span><strong>Live status</strong><br>Emoji + progress bar updates per tool call (read, write, bash, …).</div>
+  <div class="card"><span class="emoji">📚</span><strong>Self-learning</strong><br>Writes <code>AGENT.md</code> with observed patterns and personalized hints.</div>
+</div>
+
+<h2>Quick start</h2>
+<pre><code>$ ai-by
+AI By · mode: PLAN · provider: (no provider)
+Type a request, a slash command, or press Tab to switch PLAN/EXECUTE mode.
+
+ai-by> /login openai openai https://api.openai.com/v1 sk-... gpt-4o
+Provider "openai" (openai) configured.
+
+ai-by> create a new TypeScript project with a hello world
+💭 thinking      ▰▰▰▰▰▰▰▰  step 1/8
+✏️ writing       ▰▰▰▰▰▰▰▰  package.json
+✏️ writing       ▰▰▰▰▰▰▰▰  src/index.ts
+📖 reading       ▰▰▰▰▰▰▰▰  README.md
+✅ done in 4 step(s)
+</code></pre>
+
+<h2>Commands</h2>
+<table>
+<thead><tr><th>Command</th><th>What it does</th></tr></thead>
+<tbody>
+  <tr><td><code>/help</code></td><td>List commands</td></tr>
+  <tr><td><code>/login</code></td><td>Configure a new provider (OpenAI-compatible)</td></tr>
+  <tr><td><code>/providers</code></td><td>List providers</td></tr>
+  <tr><td><code>/use &lt;id&gt;</code></td><td>Set the active provider</td></tr>
+  <tr><td><code>/settings</code></td><td>View or update settings</td></tr>
+  <tr><td><code>/extensions</code></td><td>Manage plugins (enable, disable, info)</td></tr>
+  <tr><td><code>/tools</code></td><td>Manage tools (enable, disable, usage stats)</td></tr>
+  <tr><td><code>/mode [plan|execute|toggle]</code></td><td>Switch PLAN / EXECUTE mode</td></tr>
+  <tr><td><code>/compact</code></td><td>Compact the conversation context</td></tr>
+  <tr><td><code>/doctor</code></td><td>Run runtime health checks</td></tr>
+  <tr><td><code>/clear</code></td><td>Clear the screen</td></tr>
+  <tr><td><code>/exit</code></td><td>Exit</td></tr>
+</tbody>
+</table>
+
+<h2>Built-in tools</h2>
+<ul>
+  <li><code>fs.read / write / edit / delete / rename / list</code></li>
+  <li><code>search.glob / grep</code></li>
+  <li><code>terminal.run / batch</code></li>
+  <li><code>git.diff / status / log</code></li>
+</ul>
+
+<h2>Plugins</h2>
+<ul>
+  <li><code>memory</code> — persistent long-term memory</li>
+  <li><code>context</code> — project map, token counter</li>
+  <li><code>todo</code> — lightweight todo list</li>
+  <li><code>web-search</code> — SearXNG + URL fetch</li>
+  <li><code>mcp</code> — Model Context Protocol adapter</li>
+  <li><code>subagents</code> — delegate to focused sub-agents</li>
+</ul>
+
+<h2>Writing a plugin</h2>
+<p>See <a href="docs/plugins.md">docs/plugins.md</a> and the example at <a href="https://github.com/simpletoolsindia/ai-coder/tree/main/examples">examples/</a>.</p>
+
+<h2>Architecture</h2>
+<p>Core is intentionally minimal: <code>EventBus</code>, <code>DI Container</code>, <code>Settings</code>, <code>Tool Registry</code>, <code>Plugin Manager</code>, <code>Provider Manager</code>, <code>Planner</code>. Everything else is a plugin or built-in tool. The system prompt is built per-request with a 2-line OS / supported commands meta block so the LLM always knows the host environment.</p>
+
+<h2>Reliability</h2>
+<p>Every tool call goes through a <code>resilientInvoke</code> wrapper that:</p>
+<ul>
+  <li>validates arguments against the tool schema before invocation,</li>
+  <li>retries transient failures (network, timeout),</li>
+  <li>de-duplicates identical calls via an idempotency cache,</li>
+  <li>blocks unsafe tools in PLAN mode (read-only allow-list).</li>
+</ul>
+<p>A <code>LoopGuard</code> detects repeated tool calls, oscillation, and no-progress text. A <code>CompletionCheck</code> verifies the agent actually finished the work before returning, retrying if not.</p>
+
+<h2>Documentation</h2>
+<ul>
+  <li><a href="docs/README.md">Docs overview</a></li>
+  <li><a href="docs/plugins.md">Plugins</a></li>
+  <li><a href="docs/providers.md">Providers</a></li>
+  <li><a href="docs/tools.md">Tools</a></li>
+</ul>
+
+<h2>Links</h2>
+<ul>
+  <li><a href="https://github.com/simpletoolsindia/ai-coder">GitHub repository</a></li>
+  <li><a href="https://www.npmjs.com/package/ai-by">npm package</a></li>
+  <li><a href="install.sh">install.sh</a></li>
+  <li><a href="install.ps1">install.ps1</a></li>
+</ul>
+
+<hr>
+<p><small>© 2026 AI By · MIT License</small></p>
+</body>
+</html>

@@ -17,6 +17,8 @@ export interface ContextCompressorOptions {
   marker?: string;
   /** Optional summary provider (defaults to a heuristic) */
   summarize?: (messages: ChatMessage[]) => Promise<string> | string;
+  /** Token budget; messages whose combined chars exceed this trigger compression. Default 24000. */
+  tokenBudgetChars?: number;
 }
 
 const DEFAULT_OPTIONS: Required<Omit<ContextCompressorOptions, 'summarize'>> & {
@@ -26,6 +28,7 @@ const DEFAULT_OPTIONS: Required<Omit<ContextCompressorOptions, 'summarize'>> & {
   keepRecent: 4,
   maxSummaryChars: 1200,
   marker: '[... older messages were compressed to save context ...]',
+  tokenBudgetChars: 24_000,
 };
 
 export class ContextCompressor {
@@ -41,11 +44,36 @@ export class ContextCompressor {
   }
 
   shouldCompress(messages: ChatMessage[]): boolean {
-    return messages.length > this.options.threshold;
+    if (messages.length > this.options.threshold) return true;
+    return this.measure(messages) > this.options.tokenBudgetChars;
+  }
+
+  /** Returns the number of characters across all messages. */
+  measure(messages: ChatMessage[]): number {
+    let total = 0;
+    for (const m of messages) total += (m.content?.length ?? 0) + 8;
+    return total;
+  }
+
+  /** Returns the rough utilization percentage 0..1 of the token budget. */
+  utilization(messages: ChatMessage[]): number {
+    if (this.options.tokenBudgetChars === 0) return 0;
+    return Math.min(1, this.measure(messages) / this.options.tokenBudgetChars);
+  }
+
+  /** True when utilization >= threshold (default 0.95). */
+  shouldAutoCompact(messages: ChatMessage[], threshold = 0.95): boolean {
+    return this.utilization(messages) >= threshold;
   }
 
   async compress(messages: ChatMessage[], _ctx?: AgentContext): Promise<ChatMessage[]> {
-    if (messages.length <= this.options.threshold) return messages;
+    if (messages.length <= this.options.threshold && this.measure(messages) <= this.options.tokenBudgetChars) {
+      return messages;
+    }
+    // If we have a very long single message, aggressively truncate it
+    if (messages.length <= 2) {
+      return messages.map((m) => truncateIfHuge(m, this.options.maxSummaryChars * 4));
+    }
     const keep = this.options.keepRecent;
     const head = messages[0];
     const tail = messages.slice(-keep);
@@ -61,6 +89,26 @@ export class ContextCompressor {
     const summaryMessage: ChatMessage = {
       role: 'system',
       content: `${this.options.marker}\n${truncated}`,
+    };
+    if (!head) return [summaryMessage, ...tail];
+    return [head, summaryMessage, ...tail];
+  }
+
+  /**
+   * Aggressive full compact: produces a single system summary plus the
+   * most recent N messages. Used by /compact and at high utilization.
+   */
+  async compact(messages: ChatMessage[]): Promise<ChatMessage[]> {
+    const keep = Math.min(2, messages.length);
+    const head = messages[0];
+    const tail = messages.slice(-keep);
+    const middle = messages.slice(1, messages.length - keep);
+    const summary = this.options.summarize
+      ? await this.options.summarize(middle)
+      : heuristicSummary(middle);
+    const summaryMessage: ChatMessage = {
+      role: 'system',
+      content: `${this.options.marker}\n${summary}`.slice(0, this.options.maxSummaryChars * 4),
     };
     if (!head) return [summaryMessage, ...tail];
     return [head, summaryMessage, ...tail];
@@ -82,6 +130,11 @@ export class ContextCompressor {
     const after = JSON.stringify(afterList).length;
     return { before, after, saved: Math.max(0, before - after) };
   }
+}
+
+function truncateIfHuge(m: ChatMessage, max: number): ChatMessage {
+  if (m.content.length <= max) return m;
+  return { ...m, content: `${m.content.slice(0, max)}... [truncated ${m.content.length - max} chars]` };
 }
 
 function heuristicSummary(messages: ChatMessage[]): string {

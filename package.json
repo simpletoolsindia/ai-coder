@@ -1,6 +1,6 @@
 {
   "name": "ai-by",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "AI By - production-grade plugin-based coding agent",
   "type": "module",
   "main": "./dist/index.js",

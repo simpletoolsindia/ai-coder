@@ -1,4 +1,5 @@
 import type { CommandContext, CommandDefinition } from './types.js';
+export type { CommandContext, CommandDefinition } from './types.js';
 import { EventBus } from './event-bus.js';
 import { Logger, createLogger } from './logger.js';
 

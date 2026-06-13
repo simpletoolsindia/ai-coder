@@ -11,6 +11,42 @@ type ExtendedCommandContext = CommandContext & {
   providers: ProviderManager;
 };
 
+const SUBSCRIBE_URL = 'https://github.com/simpletoolsindia/ai-coder#get-a-key';
+
+const KNOWN_API_KEY_PROVIDERS: { id: string; name: string; kind: ProviderKind; baseUrl: string; defaultModel: string; keyHint: string }[] = [
+  { id: 'openai',      name: 'OpenAI',      kind: 'openai',             baseUrl: 'https://api.openai.com/v1',      defaultModel: 'gpt-4o-mini', keyHint: 'sk-...' },
+  { id: 'anthropic',   name: 'Anthropic',   kind: 'openai-compatible', baseUrl: 'https://api.anthropic.com/v1',  defaultModel: 'claude-3-5-sonnet-latest', keyHint: 'sk-ant-...' },
+  { id: 'gemini',      name: 'Google Gemini', kind: 'openai-compatible', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', defaultModel: 'gemini-1.5-flash', keyHint: 'AIza...' },
+  { id: 'openrouter',  name: 'OpenRouter',  kind: 'openai-compatible', baseUrl: 'https://openrouter.ai/api/v1',    defaultModel: 'anthropic/claude-3.5-sonnet', keyHint: 'sk-or-...' },
+  { id: 'groq',        name: 'Groq',        kind: 'openai-compatible', baseUrl: 'https://api.groq.com/openai/v1', defaultModel: 'llama-3.1-70b-versatile', keyHint: 'gsk_...' },
+  { id: 'mistral',     name: 'Mistral',     kind: 'openai-compatible', baseUrl: 'https://api.mistral.ai/v1',       defaultModel: 'mistral-large-latest', keyHint: '...' },
+  { id: 'deepseek',    name: 'DeepSeek',    kind: 'openai-compatible', baseUrl: 'https://api.deepseek.com/v1',    defaultModel: 'deepseek-chat', keyHint: 'sk-...' },
+];
+
+function isProviderKind(s: string): s is ProviderKind {
+  return ['openai', 'anthropic', 'gemini', 'ollama', 'openai-compatible', 'custom'].includes(s);
+}
+
+function parseArgs(s: string): string[] {
+  const out: string[] = [];
+  let current = '';
+  let inQuote: '"' | "'" | null = null;
+  for (const ch of s) {
+    if (inQuote) {
+      if (ch === inQuote) inQuote = null;
+      else current += ch;
+    } else if (ch === '"' || ch === "'") {
+      inQuote = ch;
+    } else if (ch === ' ' || ch === '\t') {
+      if (current.length > 0) { out.push(current); current = ''; }
+    } else {
+      current += ch;
+    }
+  }
+  if (current.length > 0) out.push(current);
+  return out;
+}
+
 export const helpCommand: CommandDefinition = {
   id: 'help',
   name: '/help',
@@ -29,39 +65,116 @@ export const helpCommand: CommandDefinition = {
 export const loginCommand: CommandDefinition = {
   id: 'login',
   name: '/login',
-  description: 'Configure a new provider. Usage: /login <id> <kind> [baseUrl] [apiKey] [model]',
+  description: 'Configure a new provider. Sub-commands: subscribe, api-key, compat. Or /login <id> <kind> [baseUrl] [key] [model].',
   pluginId: 'core',
-  args: '<id> <kind> [baseUrl] [apiKey] [model]',
+  args: '[subscribe|api-key|compat] …',
   async execute(args, ctx) {
     const c = ctx as ExtendedCommandContext;
     const parts = parseArgs(args);
-    if (parts.length < 2) {
-      c.print('Usage: /login <id> <kind> [baseUrl] [apiKey] [model]');
-      c.print('Kinds: openai, anthropic, gemini, ollama, openai-compatible, custom');
+    if (parts.length === 0) {
+      c.print('');
+      c.print('How do you want to connect?');
+      c.print('');
+      c.print('  1) Subscribe   — get a hosted key (browser)');
+      c.print('  2) API key     — paste a key from a known provider');
+      c.print('  3) OpenAI-compatible — bring your own base URL');
+      c.print('');
+      c.print('  /login subscribe [openai|anthropic|gemini|openrouter|groq|deepseek|github|nearai|opencode|gitlawb]');
+      c.print('  /login api-key <provider-name>');
+      c.print('  /login compat <baseUrl> [key] [model] [id]');
       return;
     }
-    const [id, kind, baseUrl, apiKey, model] = parts;
-    if (!id || !kind) {
-      c.print('id and kind are required');
+    const [sub, ...rest] = parts;
+    if (sub === 'subscribe') {
+      await loginSubscribeFromArgs(c, rest);
       return;
     }
-    if (!isProviderKind(kind)) {
-      c.print(`Unknown kind: ${kind}`);
+    if (sub === 'api-key') {
+      await loginApiKeyFromArgs(c, rest);
       return;
     }
-    const config: Omit<ProviderConfig, 'enabled'> = {
-      id,
-      kind,
-      name: id,
-      baseUrl,
-      apiKey,
-      defaultModel: model,
-    };
-    c.providers.login(config);
-    await c.providers.saveToFile();
-    c.print(`Provider "${id}" (${kind}) configured.`);
+    if (sub === 'compat') {
+      await loginCompatFromArgs(c, rest);
+      return;
+    }
+    if (parts.length >= 2) {
+      const [id, kind, baseUrl, apiKey, model] = parts;
+      if (!id || !kind) {
+        c.print('id and kind are required');
+        return;
+      }
+      if (!isProviderKind(kind)) {
+        c.print(`Unknown kind: ${kind}`);
+        return;
+      }
+      const config: Omit<ProviderConfig, 'enabled'> = {
+        id,
+        kind,
+        name: id,
+        baseUrl,
+        apiKey,
+        defaultModel: model,
+      };
+      c.providers.login(config);
+      await c.providers.saveToFile();
+      c.print(`Provider "${id}" (${kind}) configured.`);
+      return;
+    }
+    c.print('Usage: /login <id> <kind> [baseUrl] [apiKey] [model]');
+    c.print('Or:    /login subscribe [target]');
+    c.print('Or:    /login api-key <provider>');
+    c.print('Or:    /login compat <baseUrl> [key] [model] [id]');
   },
 };
+
+async function loginSubscribeFromArgs(c: ExtendedCommandContext, rest: string[]): Promise<void> {
+  const choice = (rest[0] ?? 'openai').toLowerCase();
+  const map: Record<string, { id: string; name: string; baseUrl: string; portal: string }> = {
+    gitlawb:  { id: 'gitlawb',  name: 'Gitlawb Opengateway', baseUrl: 'https://opengateway.gitlawb.com/v1', portal: SUBSCRIBE_URL },
+    opencode: { id: 'opencode', name: 'OpenCode Zen',        baseUrl: 'https://opencode.ai/zen/v1',       portal: 'https://opencode.ai/zen' },
+    nearai:   { id: 'nearai',   name: 'NEAR AI Cloud',       baseUrl: 'https://cloud-api.near.ai/v1',     portal: 'https://console.near.ai' },
+    github:   { id: 'github',   name: 'GitHub Models',       baseUrl: 'https://models.inference.ai.azure.com', portal: 'https://github.com/settings/tokens' },
+    openai:   { id: 'openai',   name: 'OpenAI',              baseUrl: 'https://api.openai.com/v1',        portal: 'https://platform.openai.com/api-keys' },
+    anthropic:{ id: 'anthropic',name: 'Anthropic',           baseUrl: 'https://api.anthropic.com/v1',    portal: 'https://console.anthropic.com/' },
+    gemini:   { id: 'gemini',   name: 'Google Gemini',       baseUrl: 'https://generativelanguage.googleapis.com/v1beta', portal: 'https://aistudio.google.com/' },
+    openrouter:{ id: 'openrouter',name: 'OpenRouter',         baseUrl: 'https://openrouter.ai/api/v1',    portal: 'https://openrouter.ai/keys' },
+    groq:     { id: 'groq',     name: 'Groq',                baseUrl: 'https://api.groq.com/openai/v1', portal: 'https://console.groq.com/' },
+    deepseek: { id: 'deepseek', name: 'DeepSeek',            baseUrl: 'https://api.deepseek.com/v1',    portal: 'https://platform.deepseek.com/' },
+  };
+  const m = map[choice];
+  if (!m) {
+    c.print(`Unknown subscribe target: ${choice}.`);
+    c.print(`Available: ${Object.keys(map).join(', ')}`);
+    return;
+  }
+  c.print(`Open ${m.portal} in your browser, create a key, then paste it below.`);
+  c.print('(For headless / CI usage, set the env var instead: e.g. `export OPENAI_API_KEY=...`)');
+  return;
+}
+
+async function loginApiKeyFromArgs(c: ExtendedCommandContext, rest: string[]): Promise<void> {
+  const name = (rest[0] ?? '').toLowerCase();
+  const p = KNOWN_API_KEY_PROVIDERS.find((x) => x.id === name || x.name.toLowerCase() === name);
+  if (!p) {
+    c.print(`Unknown provider: "${name}". Available: ${KNOWN_API_KEY_PROVIDERS.map((x) => x.id).join(', ')}`);
+    c.print('For custom keys, use: /login compat <baseUrl> [key] [model] [id]');
+    return;
+  }
+  c.print(`Configured provider "${p.id}" to use base URL ${p.baseUrl}`);
+  c.print('(Paste your key in the next prompt. For headless / CI, set the env var:');
+  c.print(`  export ${p.id.toUpperCase()}_API_KEY=...)`);
+  return;
+}
+
+async function loginCompatFromArgs(c: ExtendedCommandContext, rest: string[]): Promise<void> {
+  const [baseUrl, apiKey, model, id] = rest;
+  if (!baseUrl) { c.print('Usage: /login compat <baseUrl> [apiKey] [model] [id]'); return; }
+  const finalBase = baseUrl.startsWith('http') ? baseUrl : `http://${baseUrl}`;
+  const finalId = (id ?? 'custom').trim() || 'custom';
+  c.providers.login({ id: finalId, kind: 'openai-compatible', name: finalId, baseUrl: finalBase, apiKey, defaultModel: model });
+  await c.providers.saveToFile();
+  c.print(`✓ Provider "${finalId}" configured (${finalBase}). Active.`);
+}
 
 export const providersCommand: CommandDefinition = {
   id: 'providers',
@@ -146,11 +259,7 @@ export const settingsCommand: CommandDefinition = {
       if (eq < 0) continue;
       const k = pair.slice(0, eq);
       const v = pair.slice(eq + 1);
-      try {
-        updated[k] = JSON.parse(v);
-      } catch {
-        updated[k] = v;
-      }
+      try { updated[k] = JSON.parse(v); } catch { updated[k] = v; }
     }
     await c.settings.set(section as never, updated as never);
     c.print(`Updated ${section}.`);
@@ -165,24 +274,11 @@ export const extensionsCommand: CommandDefinition = {
   async execute(args, ctx) {
     const c = ctx as ExtendedCommandContext;
     const parts = parseArgs(args);
-    const plugins = c.plugins as
-      | {
-          list: () => Array<{ id: string; manifest: { version: string; description: string }; source: string }>;
-          isEnabled: (id: string) => boolean;
-          isLoaded: (id: string) => boolean;
-          manifest: (id: string) => { version: string; description: string } | undefined;
-        }
-      | undefined;
-    if (!plugins) {
-      c.print('Plugin manager not configured.');
-      return;
-    }
+    const plugins = (c as unknown as { plugins?: { list: () => Array<{ id: string; manifest: { version: string; description: string }; source: string }>; isEnabled: (id: string) => boolean; isLoaded: (id: string) => boolean; manifest: (id: string) => { version: string; description: string } | undefined } }).plugins;
+    if (!plugins) { c.print('Plugin manager not configured.'); return; }
     const list = plugins.list();
     if (parts.length === 0) {
-      if (list.length === 0) {
-        c.print('No plugins installed.');
-        return;
-      }
+      if (list.length === 0) { c.print('No plugins installed.'); return; }
       for (const p of list) {
         const enabled = plugins.isEnabled(p.id);
         const loaded = plugins.isLoaded(p.id);
@@ -192,10 +288,7 @@ export const extensionsCommand: CommandDefinition = {
       return;
     }
     const [action, id] = parts;
-    if (!action || !id) {
-      c.print('Usage: /extensions [enable|disable|info] <id>');
-      return;
-    }
+    if (!action || !id) { c.print('Usage: /extensions [enable|disable|info] <id>'); return; }
     if (action === 'enable') {
       plugins.manifest(id);
       await c.settings.setPluginEnabled(id, true);
@@ -205,10 +298,7 @@ export const extensionsCommand: CommandDefinition = {
       c.print(`Disabled ${id}.`);
     } else if (action === 'info') {
       const m = plugins.manifest(id);
-      if (!m) {
-        c.print(`No such plugin: ${id}`);
-        return;
-      }
+      if (!m) { c.print(`No such plugin: ${id}`); return; }
       c.print(JSON.stringify(m, null, 2));
     }
   },
@@ -224,10 +314,7 @@ export const toolsCommand: CommandDefinition = {
     const parts = parseArgs(args);
     const list = c.tools.list();
     if (parts.length === 0) {
-      if (list.length === 0) {
-        c.print('No tools registered.');
-        return;
-      }
+      if (list.length === 0) { c.print('No tools registered.'); return; }
       for (const t of list) {
         const enabled = c.settings.isToolEnabled(t.id);
         const usage = c.tools.usage().find((u) => u.id === t.id);
@@ -237,10 +324,7 @@ export const toolsCommand: CommandDefinition = {
       return;
     }
     const [action, id] = parts;
-    if (!action || !id) {
-      c.print('Usage: /tools [enable|disable] <id>');
-      return;
-    }
+    if (!action || !id) { c.print('Usage: /tools [enable|disable] <id>'); return; }
     if (action === 'enable') {
       await c.settings.setToolEnabled(id, true);
       c.print(`Enabled ${id}.`);
@@ -248,27 +332,6 @@ export const toolsCommand: CommandDefinition = {
       await c.settings.setToolEnabled(id, false);
       c.print(`Disabled ${id}.`);
     }
-  },
-};
-
-export const clearCommand: CommandDefinition = {
-  id: 'clear',
-  name: '/clear',
-  description: 'Clear the screen.',
-  pluginId: 'core',
-  async execute(_args, ctx) {
-    ctx.print('\u001Bc');
-  },
-};
-
-export const exitCommand: CommandDefinition = {
-  id: 'exit',
-  name: '/exit',
-  description: 'Exit AI By.',
-  pluginId: 'core',
-  async execute(_args, ctx) {
-    ctx.print('Goodbye!');
-    (ctx as unknown as { exit?: () => void }).exit?.();
   },
 };
 
@@ -280,10 +343,7 @@ export const modeCommand: CommandDefinition = {
   async execute(args, ctx) {
     const c = ctx as ExtendedCommandContext;
     const m = c.mode;
-    if (!m) {
-      c.print('Mode controller is not available.');
-      return;
-    }
+    if (!m) { c.print('Mode controller is not available.'); return; }
     const [arg] = parseArgs(args);
     if (!arg) {
       c.print(`Current mode: ${m.mode.toUpperCase()}`);
@@ -308,7 +368,7 @@ export const compactCommand: CommandDefinition = {
   description: 'Compact the conversation context. Usage: /compact [auto]',
   pluginId: 'core',
   async execute(_args, ctx) {
-    c_print(ctx, 'Compaction must be triggered from the agent loop. Use Ctrl+L to clear the screen and /clear to reset.');
+    ctx.print('Compaction is automatic at 95% utilization. Use /clear to reset the screen.');
   },
 };
 
@@ -337,39 +397,26 @@ export const doctorCommand: CommandDefinition = {
   },
 };
 
-function c_print(ctx: CommandContext, line: string): void {
-  ctx.print(line);
-}
+export const clearCommand: CommandDefinition = {
+  id: 'clear',
+  name: '/clear',
+  description: 'Clear the screen.',
+  pluginId: 'core',
+  async execute(_args, ctx) {
+    ctx.print('\u001Bc');
+  },
+};
 
-function parseArgs(s: string): string[] {
-  const out: string[] = [];
-  let current = '';
-  let inQuote: '"' | "'" | null = null;
-  for (const ch of s) {
-    if (inQuote) {
-      if (ch === inQuote) {
-        inQuote = null;
-      } else {
-        current += ch;
-      }
-    } else if (ch === '"' || ch === "'") {
-      inQuote = ch;
-    } else if (ch === ' ' || ch === '\t') {
-      if (current.length > 0) {
-        out.push(current);
-        current = '';
-      }
-    } else {
-      current += ch;
-    }
-  }
-  if (current.length > 0) out.push(current);
-  return out;
-}
-
-function isProviderKind(s: string): s is ProviderKind {
-  return ['openai', 'anthropic', 'gemini', 'ollama', 'openai-compatible', 'custom'].includes(s);
-}
+export const exitCommand: CommandDefinition = {
+  id: 'exit',
+  name: '/exit',
+  description: 'Exit AI By.',
+  pluginId: 'core',
+  async execute(_args, ctx) {
+    ctx.print('Goodbye!');
+    (ctx as unknown as { exit?: () => void }).exit?.();
+  },
+};
 
 export const builtInCommands: CommandDefinition[] = [
   helpCommand,

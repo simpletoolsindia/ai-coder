@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { Sidebar } from './components/Sidebar.js';
 import { ChatHistory } from './components/ChatHistory.js';
 import { ActivityFeed } from './components/ActivityFeed.js';
 import { InputBox } from './components/InputBox.js';
+import { CommandHost } from './components/CommandHost.js';
 import type { Runtime } from '../../core/runtime.js';
 import type { ChatMessage, ToolDefinition, ProviderConfig } from '../../core/types.js';
 import { ModeController, type AgentMode } from '../../core/mode-controller.js';
 import { StatusDisplay, type AgentActivity } from '../../core/status-display.js';
 import { CommandRegistry, CommandNotFoundError, CommandParseError } from '../../core/command-registry.js';
+import type { CommandContext } from '../../core/command-registry.js';
 import { builtInCommands } from '../commands.js';
 import { builtInPlugins } from '../../plugins/index.js';
 import { coreToolsPlugin } from '../../tools/index.js';
@@ -44,6 +46,10 @@ export function TuiApp({ runtime, commands, mode, status, onExit }: TuiAppProps)
   const [pluginList, setPluginList] = useState<{ id: string; loaded: boolean; enabled: boolean }[]>([]);
   const [currentMode, setCurrentMode] = useState<AgentMode>(mode.mode);
   const [statusMsg, setStatusMsg] = useState<string>('');
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteFilter, setPaletteFilter] = useState('');
+
+  const allCommands = useMemo(() => commands.list({ includeHidden: true }), [commands]);
 
   useEffect(() => {
     refresh();
@@ -154,12 +160,55 @@ export function TuiApp({ runtime, commands, mode, status, onExit }: TuiAppProps)
     refreshLists();
   }
 
+  // Detect when the user typed `/` so the palette can show.
+  function onInputChange(v: string) {
+    setPaletteFilter(v);
+    if (v.trim().startsWith('/')) {
+      setPaletteOpen(true);
+    } else {
+      setPaletteOpen(false);
+    }
+  }
+
   useInput((input, key) => {
     if (key.tab) {
       const next = mode.toggle();
       setCurrentMode(next);
     }
   });
+
+  const tuiCtx: CommandContext = useMemo(
+    () => ({
+      commands,
+      settings: runtime.settings,
+      providers: runtime.providers,
+      tools: runtime.tools,
+      plugins: runtime.plugins,
+      events: bus,
+      logger: runtime['logger' as never],
+      print: (line: string) => {
+        setMessages((m) => [...m, { role: 'system', content: line }]);
+      },
+      mode,
+      status,
+    }),
+    [commands, runtime, bus, mode, status],
+  );
+
+  // Inline rendering helper for the command palette above the input.
+  const renderPalette = () => (
+    <CommandHost
+      commands={allCommands}
+      registry={commands}
+      width={80}
+      ctx={tuiCtx}
+      onAfterRun={() => {
+        refreshLists();
+        setPaletteFilter('');
+        setPaletteOpen(false);
+      }}
+    />
+  );
 
   return (
     <Box flexDirection="row" width="100%" height="100%">
@@ -182,15 +231,18 @@ export function TuiApp({ runtime, commands, mode, status, onExit }: TuiAppProps)
           <ChatHistory messages={messages} width={80} height={20} />
         </Box>
         <ActivityFeed current={activity} step={step} totalSteps={8} history={feed} width={80} />
+        {paletteOpen ? renderPalette() : null}
         <InputBox
-          prompt="ai-coder>"
+          prompt={paletteOpen ? '› filter' : 'ai-coder>'}
+          value={paletteFilter}
+          onChange={onInputChange}
           onSubmit={handleSubmit}
           onTab={() => mode.toggle()}
           onCtrlC={() => {
             onExit();
             exit();
           }}
-          hint="Enter to send · Tab toggles PLAN/EXECUTE · /help for commands · Ctrl+C to quit"
+          hint="Enter to send · Tab toggles PLAN/EXECUTE · / for command palette · Ctrl+C to quit"
           width={80}
         />
       </Box>

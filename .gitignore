@@ -1,0 +1,16 @@
+node_modules
+dist
+coverage
+*.log
+.DS_Store
+.env
+.env.local
+*.tsbuildinfo
+.vitest-cache
+config/settings.json
+config/providers.json
+config/plugins.json
+config/tools.json
+config/permissions.json
+config/memory.json
+config/search.json

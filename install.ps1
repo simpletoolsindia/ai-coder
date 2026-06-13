@@ -80,7 +80,7 @@ function Verify {
     $ver = $null
     try { $ver = ai-by --version } catch {}
     Log "ai-by installed" + $(if ($ver) { " ($ver)" } else { "" })
-    Log "Restart your terminal and run 'ai-by'"
+    Log "Restart your terminal and run 'ai-by' or 'ai-coder'"
   } else {
     Warn "ai-by was installed but is not on PATH"
     Warn "Open a new PowerShell window"

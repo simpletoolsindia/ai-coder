@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { font-feature-settings: 'cv11', 'ss01', 'ss03'; }
+  body { font-family: theme('fontFamily.sans'); }
+  .prose :where(code):not(:where([class~='not-prose'] *)) {
+    @apply bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100 px-1.5 py-0.5 rounded-notion font-mono text-[0.875em];
+  }
+  .prose :where(pre):not(:where([class~='not-prose'] *)) {
+    @apply bg-ink-50 dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-notion p-4 overflow-x-auto;
+  }
+  .prose :where(pre code):not(:where([class~='not-prose'] *)) {
+    @apply bg-transparent p-0;
+  }
+}
+
+@layer components {
+  .notion-card {
+    @apply bg-white dark:bg-ink-800 border border-ink-200 dark:border-ink-700 rounded-notion shadow-notion-sm hover:shadow-notion-hover transition-shadow;
+  }
+  .notion-btn {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-notion text-sm font-medium border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 hover:bg-ink-50 dark:hover:bg-ink-700 transition-colors;
+  }
+  .notion-btn-primary {
+    @apply bg-brand-600 hover:bg-brand-700 text-white border-transparent;
+  }
+  .notion-link {
+    @apply text-brand-700 dark:text-brand-300 underline decoration-brand-200 dark:decoration-brand-700 underline-offset-2 hover:decoration-brand-500;
+  }
+  .notion-pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 text-xs font-medium;
+  }
+  .notion-callout {
+    @apply flex gap-3 p-4 bg-brand-50 dark:bg-brand-900/30 border border-brand-100 dark:border-brand-800 rounded-notion text-sm;
+  }
+  .notion-h1 { @apply text-4xl md:text-5xl font-bold tracking-tight; }
+  .notion-h2 { @apply text-2xl md:text-3xl font-semibold tracking-tight; }
+  .notion-h3 { @apply text-xl font-semibold; }
+  .notion-eyebrow { @apply text-xs font-semibold uppercase tracking-wider text-ink-500; }
+}

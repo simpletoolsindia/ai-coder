@@ -282,3 +282,6 @@ export class StatusDisplay {
 }
 
 export const __statusDisplayTesting = { EMOJI, VERB, TOOL_TO_ACTIVITY };
+export const EMOJI_PUBLIC: Record<AgentActivity, string> = EMOJI;
+export const VERB_PUBLIC: Record<AgentActivity, string> = VERB;
+export const TOOL_TO_ACTIVITY_PUBLIC: Record<string, AgentActivity> = TOOL_TO_ACTIVITY;

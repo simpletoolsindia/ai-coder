@@ -7,10 +7,20 @@ async function main(): Promise<void> {
   const batch = args.includes('--batch') || args.includes('-b');
   const verbose = args.includes('--verbose') || args.includes('-v');
   const noPrompt = args.includes('--no-prompt');
+  const tui = !args.includes('--no-tui') && !batch && process.stdin.isTTY === true;
   const logger: Logger = createLogger({
     level: verbose ? 'debug' : 'info',
     transports: process.env.AI_BY_SILENT === '1' ? [silentTransport] : undefined,
   });
+
+  if (tui) {
+    const { launchTui } = await import('./interfaces/tui/App.js');
+    const { Runtime } = await import('./core/runtime.js');
+    const runtime = new Runtime({ logger });
+    await launchTui({ runtime, onExit: () => process.exit(0) });
+    return;
+  }
+
   const cli = new CLI({ batch, noPrompt, logger, prompt: 'ai-coder> ' });
   await cli.initialize();
   const isInteractive = !batch && !noPrompt && process.stdin.isTTY;

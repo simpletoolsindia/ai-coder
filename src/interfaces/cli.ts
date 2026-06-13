@@ -45,7 +45,7 @@ export class CLI {
       events: options.events ?? new EventBus(),
       batch: options.batch ?? false,
       noPrompt: options.noPrompt ?? false,
-      prompt: options.prompt ?? 'ai-by> ',
+      prompt: options.prompt ?? 'ai-coder> ',
       noPlugins: options.noPlugins ?? false,
     };
     this.runtime = this.options.runtime ?? new Runtime({ logger: this.options.logger, events: this.options.events });

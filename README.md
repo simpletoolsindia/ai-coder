@@ -39,7 +39,7 @@ npm install -g ai-by
 After install:
 
 ```bash
-ai-by
+ai-coder
 ```
 
 ---

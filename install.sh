@@ -147,11 +147,11 @@ install_package() {
 }
 
 verify() {
-  if have ai-by; then
-    log "ai-by $(ai-by --version 2>/dev/null || echo 'installed')"
-    log "Run 'ai-by' or 'ai-coder' to start"
+  if have ai-coder; then
+    log "ai-coder $(ai-coder --version 2>/dev/null || echo 'installed')"
+    log "Run 'ai-coder' to start"
   else
-    warn "ai-by was installed but is not on PATH"
+    warn "ai-coder was installed but is not on PATH"
     warn "Restart your terminal or run: hash -r"
   fi
 }

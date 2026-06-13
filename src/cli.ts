@@ -11,7 +11,7 @@ async function main(): Promise<void> {
     level: verbose ? 'debug' : 'info',
     transports: process.env.AI_BY_SILENT === '1' ? [silentTransport] : undefined,
   });
-  const cli = new CLI({ batch, noPrompt, logger, prompt: 'ai-by> ' });
+  const cli = new CLI({ batch, noPrompt, logger, prompt: 'ai-coder> ' });
   await cli.initialize();
   const isInteractive = !batch && !noPrompt && process.stdin.isTTY;
   if (!isInteractive) {

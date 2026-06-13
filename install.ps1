@@ -76,13 +76,13 @@ function Install-Package {
 }
 
 function Verify {
-  if (Test-Command ai-by) {
+  if (Test-Command ai-coder) {
     $ver = $null
-    try { $ver = ai-by --version } catch {}
-    Log "ai-by installed" + $(if ($ver) { " ($ver)" } else { "" })
-    Log "Restart your terminal and run 'ai-by' or 'ai-coder'"
+    try { $ver = ai-coder --version } catch {}
+    Log "ai-coder installed" + $(if ($ver) { " ($ver)" } else { "" })
+    Log "Restart your terminal and run 'ai-coder'"
   } else {
-    Warn "ai-by was installed but is not on PATH"
+    Warn "ai-coder was installed but is not on PATH"
     Warn "Open a new PowerShell window"
   }
 }

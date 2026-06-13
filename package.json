@@ -1,6 +1,6 @@
 {
   "name": "ai-by",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "AI By - production-grade plugin-based coding agent",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,7 +12,6 @@
     }
   },
   "bin": {
-    "ai-by": "./dist/cli.js",
     "ai-coder": "./dist/cli.js"
   },
   "publishConfig": {

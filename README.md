@@ -10,18 +10,47 @@ AI By helps you generate, debug, refactor, and maintain code. It is designed to 
 - **OpenAI-compatible** – works with any OpenAI-compatible endpoint out of the box
 - **Tested** – unit, integration, E2E and performance tests are first-class
 
+**📖 Full documentation:** **<https://simpletoolsindia.github.io/ai-coder/>**
+
 ---
 
-## Quick start
+## 🚀 Single-line installation
+
+The installer detects your OS, installs Node.js 20+ if missing, then installs AI By globally.
+
+### macOS / Linux / WSL
 
 ```bash
-# install
+curl -fsSL https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.sh | bash
+```
+
+### Windows (PowerShell)
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.ps1 | iex
+```
+
+### npm (any platform, Node already installed)
+
+```bash
+npm install -g ai-by
+```
+
+After install:
+
+```bash
+ai-by
+```
+
+---
+
+## Quick start (from source)
+
+```bash
+git clone https://github.com/simpletoolsindia/ai-coder.git
+cd ai-coder
 npm install
-
-# build
 npm run build
-
-# start the CLI
 npm run dev
 
 # in the REPL
@@ -49,14 +78,20 @@ AI By
 │   ├── Permission Engine
 │   ├── Plugin Manager    (manifest-driven, lazy)
 │   ├── Provider Manager  (OpenAI-compatible by default)
-│   ├── Planner
-│   ├── Prompt Builder
-│   └── Context Compressor
+│   ├── Planner           (with LoopGuard and CompletionCheck)
+│   ├── Prompt Builder    (2-line OS meta + supported commands always included)
+│   ├── Context Compressor(adaptive, auto-compact at 95% utilization)
+│   ├── Mode Controller   (PLAN / EXECUTE)
+│   ├── Tool RAG          (dynamic tool selection per request)
+│   ├── Resilient Invoke  (retries, validation, idempotency)
+│   ├── Learning Store    (writes AGENT.md)
+│   └── Status Display    (emoji + progress bar, in-place TTY)
 │
 ├── Built-in tools        (lazy; loaded on demand)
-│   ├── Filesystem
-│   ├── Search
-│   └── Terminal
+│   ├── Filesystem        (read / write / edit / delete / rename / list)
+│   ├── Search            (glob / grep)
+│   ├── Terminal          (run / batch)
+│   └── Git               (diff / status / log)
 │
 └── Plugins               (lazy; loaded only when triggered)
     ├── memory            (long-term persistent memory)
@@ -89,23 +124,28 @@ Every plugin exposes a manifest. The core only reads the manifest; implementatio
 - The core does not import any plugin at startup
 - When the user issues a request, the planner asks the plugin manager for plugins matching the request's tokens and tags
 - Only matching plugins are loaded
-- Built-in tools (filesystem, search, terminal) are also lazy
+- Built-in tools (filesystem, search, terminal, git) are also lazy
 
 ---
 
 ## CLI commands
 
-| Command      | Description                                       |
-|--------------|---------------------------------------------------|
-| `/help`      | List all available commands                       |
-| `/login`     | Configure a new provider (OpenAI-compatible)      |
-| `/providers` | List configured providers                         |
-| `/use`       | Set the active provider                           |
-| `/settings`  | View or update settings                           |
-| `/extensions`| List, enable, disable, inspect plugins            |
-| `/tools`     | List, enable, disable tools                       |
-| `/clear`     | Clear the screen                                  |
-| `/exit`      | Exit AI By                                        |
+| Command      | Description                                                |
+|--------------|------------------------------------------------------------|
+| `/help`      | List all available commands                                |
+| `/login`     | Configure a new provider (OpenAI-compatible)               |
+| `/providers` | List configured providers                                  |
+| `/use`       | Set the active provider                                    |
+| `/settings`  | View or update settings                                    |
+| `/extensions`| List, enable, disable, inspect plugins                     |
+| `/tools`     | List, enable, disable tools                                |
+| `/mode`      | View or set the agent mode (plan / execute / toggle)        |
+| `/compact`   | Compact the conversation context                           |
+| `/doctor`    | Run runtime health checks (Node, providers, plugins, tools) |
+| `/clear`     | Clear the screen                                           |
+| `/exit`      | Exit AI By                                                 |
+
+**Tab** in the REPL toggles between **PLAN** (read-only) and **EXECUTE** (full) modes.
 
 ### `/login` examples
 
@@ -125,6 +165,17 @@ Every plugin exposes a manifest. The core only reads the manifest; implementatio
 /settings tools fs.delete.enabled=false
 ```
 
+### Status UI
+
+The REPL shows a live status line that updates in place:
+
+```
+💭 thinking      ▰▰▰▰▰▰▰▰  step 1/8
+✏️ writing       ▰▰▰▰▰▰▰▰  package.json
+📖 reading       ▰▰▰▰▰▰▰▰  README.md
+✅ done in 4 step(s)
+```
+
 ---
 
 ## Programmatic use
@@ -142,7 +193,7 @@ console.log(result.text);
 You can also use the lower-level building blocks individually:
 
 ```ts
-import { EventBus, Container, ToolRegistry, PermissionEngine, PluginManager, PromptBuilder, ContextCompressor, ProviderManager, Planner } from 'ai-by';
+import { EventBus, Container, ToolRegistry, PermissionEngine, PluginManager, PromptBuilder, ContextCompressor, ProviderManager, Planner, ModeController, StatusDisplay, ToolRag, LoopGuard, LearningStore } from 'ai-by';
 ```
 
 ---
@@ -161,6 +212,8 @@ config/
 ```
 
 All configuration files are JSON-validated by Zod schemas. Invalid values fail loudly at load time.
+
+`general.defaultProvider` and `general.defaultModel` are auto-persisted after every successful chat and auto-restored on the next launch.
 
 ---
 
@@ -231,7 +284,7 @@ npm run validate:manifests
 
 The test suite covers:
 
-- Every core module with unit tests
+- Every core module with unit tests (target 90% line coverage)
 - Plugin lifecycle, lazy loading, provider switching, tool resolution (integration)
 - End-to-end "create project" workflow
 - Performance smoke tests for startup, plugin load, context compression, tool resolution
@@ -247,6 +300,18 @@ The test suite covers:
 4. **Provider-agnostic.** OpenAI-compatible by default, with env-var-based configuration.
 5. **Permissions and tool enablement are first-class.** Users control what the agent can do.
 6. **Everything is testable.** Mocks for HTTP, providers, and MCP clients.
+7. **Reliability is non-negotiable.** Every tool call is validated, retried on transient failure, de-duplicated via idempotency, gated by mode (PLAN vs EXECUTE), and verified by a loop guard + completion check before the agent exits.
+8. **Self-improving.** The agent writes `AGENT.md` based on observed patterns and surfaces the most-used tools.
+
+---
+
+## Links
+
+- **Documentation site:** <https://simpletoolsindia.github.io/ai-coder/>
+- **GitHub repository:** <https://github.com/simpletoolsindia/ai-coder>
+- **npm package:** <https://www.npmjs.com/package/ai-by>
+- **Issues:** <https://github.com/simpletoolsindia/ai-coder/issues>
+- **One-line install:** `curl -fsSL https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.sh | bash`
 
 ---
 

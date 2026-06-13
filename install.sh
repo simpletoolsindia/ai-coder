@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # AI By - one-line installer for macOS, Linux and WSL.
 #
+# Docs:      https://simpletoolsindia.github.io/ai-coder/
+# GitHub:    https://github.com/simpletoolsindia/ai-coder
+# npm:       https://www.npmjs.com/package/ai-by
+#
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.sh | bash -s -- --global
-#   curl -fsSL ... | bash -s -- --version 0.2.0
+#   curl -fsSL https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.sh | bash -s -- --version 0.2.1
+#   curl -fsSL ... | bash -s -- --from-source   # install from a local checkout
 #
 # What it does:
 #   1. Detects OS and package manager.

@@ -1,8 +1,12 @@
 # AI By - Windows installer (PowerShell)
 #
+# Docs:      https://simpletoolsindia.github.io/ai-coder/
+# GitHub:    https://github.com/simpletoolsindia/ai-coder
+# npm:       https://www.npmjs.com/package/ai-by
+#
 # Usage:
 #   iwr -useb https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.ps1 | iex
-#   iwr -useb https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.ps1 | iex -ArgumentList '--version','0.2.0'
+#   iwr -useb https://raw.githubusercontent.com/simpletoolsindia/ai-coder/main/install.ps1 | iex -ArgumentList '--version','0.2.1'
 #
 # What it does:
 #   1. Detects whether Node >= 20 is installed.

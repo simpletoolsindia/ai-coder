@@ -73,9 +73,16 @@ export class CLI {
       this.runtime.planner['options'].mode = this.mode;
     }
     await this.runtime.initialize();
-    await this.runtime.providers.loadFromFile(resolveProviderConfigPath(process.cwd())).catch((err) => {
+    const providerPath = resolveProviderConfigPath(process.cwd());
+    this.options.logger.info(`Loading providers from ${providerPath}`);
+    await this.runtime.providers.loadFromFile(providerPath).catch((err) => {
       this.options.logger.warn(`Could not load providers.json: ${(err as Error).message}`);
     });
+    // Make sure future saves go to the same resolved path so the config
+    // is found from any directory.
+    if (providerPath) {
+      (this.runtime.providers as unknown as { configPath?: string }).configPath = providerPath;
+    }
     // Wire last-used model persistence: subscribe to provider.used events
     // and update settings + persist the active (provider, model) pair.
     this.options.events.on('provider.used', (payload) => {

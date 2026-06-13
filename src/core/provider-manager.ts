@@ -9,7 +9,7 @@ import type {
 } from './types.js';
 import { OpenAICompatibleProvider } from '../providers/openai-compatible.js';
 import { ProvidersFileSchema, type ProvidersFile } from './settings-manager.js';
-import { promises as fs } from 'node:fs';
+import { promises as fs, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 export interface ProviderManagerOptions {
@@ -262,7 +262,17 @@ export class ProviderManager {
   }
 }
 
-export const resolveProviderConfigPath = (cwd: string): string => resolve(cwd, 'config', 'providers.json');
+export const resolveProviderConfigPath = (cwd?: string): string => {
+  const candidates = [
+    process.env['AI_BY_PROVIDERS'],
+    cwd ? resolve(cwd, 'config', 'providers.json') : undefined,
+    resolve(process.env['HOME'] ?? cwd ?? '.', '.ai-by', 'config', 'providers.json'),
+  ].filter((c): c is string => Boolean(c));
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return cwd ? resolve(cwd, 'config', 'providers.json') : candidates[0] ?? 'providers.json';
+};
 
 export const createProviderManager = (opts?: ProviderManagerOptions): ProviderManager =>
   new ProviderManager(opts);

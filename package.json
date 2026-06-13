@@ -1,6 +1,6 @@
 {
   "name": "ai-by",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "AI By - production-grade plugin-based coding agent",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,6 +17,14 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
+  },
+  "homepage": "https://github.com/simpletoolsindia/ai-coder",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simpletoolsindia/ai-coder.git"
+  },
+  "bugs": {
+    "url": "https://github.com/simpletoolsindia/ai-coder/issues"
   },
   "files": [
     "dist",
